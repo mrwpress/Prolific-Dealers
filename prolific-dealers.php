@@ -15,6 +15,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 define( 'PROLIFIC_DEALERS_VERSION', '1.0' );
 define( 'PROLIFIC_DEALERS_PATH', plugin_dir_path( __FILE__ ) );
 define( 'PROLIFIC_DEALERS_URL', plugin_dir_url( __FILE__ ) );
+define( 'PROLIFIC_DEALERS_DISCOUNT', 10 );
 
 register_activation_hook( __FILE__, 'prolific_dealers_activate' );
 register_deactivation_hook( __FILE__, 'prolific_dealers_deactivate' );
