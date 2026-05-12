@@ -24,9 +24,7 @@ class Prolific_Dealers_Pricing {
 		$discount = PROLIFIC_DEALERS_DISCOUNT / 100;
 		return (string) round( (float) $price * ( 1 - $discount ), 2 );
 	}
-
-	// TODO: Chuck Test - verify variation price ranges update for dealer users
-	public static function variation_prices_hash( $hash ) {
+    public static function variation_prices_hash( $hash ) {
 		if ( Prolific_Dealers::is_dealer() ) {
 			$hash[] = 'dealer_' . PROLIFIC_DEALERS_DISCOUNT;
 		}

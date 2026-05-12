@@ -49,7 +49,6 @@ class Prolific_Dealers_Visibility {
 			return;
 		}
 
-		// TODO: Chuck Test - verify dealer-only checkbox saves and persists on product edit screen
 		$value = isset( $_POST['prolific_dealer_only'] ) ? '1' : '';
 		update_post_meta( $post_id, '_prolific_dealer_only', $value );
 	}
@@ -67,7 +66,6 @@ class Prolific_Dealers_Visibility {
 			return;
 		}
 
-		// TODO: Chuck Test - verify dealer-only products are hidden from shop/category pages for non-dealers
 		$meta_query = $query->get( 'meta_query' ) ?: [];
 		$meta_query[] = [
 			'relation' => 'OR',
@@ -84,7 +82,6 @@ class Prolific_Dealers_Visibility {
 		$query->set( 'meta_query', $meta_query );
 	}
 
-	// TODO: Chuck Test - verify dealer-only products return 404 or redirect for non-dealer direct URL access
 	public static function filter_product_visibility( $visible, $product_id ) {
 		if ( Prolific_Dealers::is_dealer() ) {
 			return $visible;
