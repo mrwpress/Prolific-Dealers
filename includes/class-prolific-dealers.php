@@ -20,6 +20,19 @@ class Prolific_Dealers {
 	}
 
 	private function init_hooks() {
-		// Hook registrations go here.
+		require_once PROLIFIC_DEALERS_PATH . 'includes/class-prolific-dealers-pricing.php';
+		require_once PROLIFIC_DEALERS_PATH . 'includes/class-prolific-dealers-visibility.php';
+
+		Prolific_Dealers_Pricing::init();
+		Prolific_Dealers_Visibility::init();
+	}
+
+	public static function is_dealer() {
+		if ( ! is_user_logged_in() ) {
+			return false;
+		}
+
+		$user = wp_get_current_user();
+		return in_array( 'dealer', (array) $user->roles, true );
 	}
 }
