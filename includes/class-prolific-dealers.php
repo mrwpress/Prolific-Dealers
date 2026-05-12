@@ -32,7 +32,8 @@ class Prolific_Dealers {
 			return false;
 		}
 
-		$user = wp_get_current_user();
-		return in_array( 'dealer', (array) $user->roles, true );
+		$user  = wp_get_current_user();
+		$roles = (array) $user->roles;
+		return in_array( 'dealer', $roles, true ) || in_array( 'administrator', $roles, true );
 	}
 }
