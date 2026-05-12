@@ -44,6 +44,11 @@ function prolific_dealers_activate() {
 }
 
 function prolific_dealers_deactivate() {
+	$dealers = get_users( [ 'role' => 'dealer' ] );
+	foreach ( $dealers as $user ) {
+		$user->set_role( 'customer' );
+	}
+
 	remove_role( 'dealer' );
 }
 
