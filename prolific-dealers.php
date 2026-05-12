@@ -16,6 +16,8 @@ define( 'PROLIFIC_DEALERS_VERSION', '1.0' );
 define( 'PROLIFIC_DEALERS_PATH', plugin_dir_path( __FILE__ ) );
 define( 'PROLIFIC_DEALERS_URL', plugin_dir_url( __FILE__ ) );
 
+register_activation_hook( __FILE__, 'prolific_dealers_activate' );
+register_deactivation_hook( __FILE__, 'prolific_dealers_deactivate' );
 add_action( 'plugins_loaded', 'prolific_dealers_init' );
 
 function prolific_dealers_init() {
@@ -27,6 +29,21 @@ function prolific_dealers_init() {
 
 	require_once PROLIFIC_DEALERS_PATH . 'includes/class-prolific-dealers.php';
 	Prolific_Dealers::instance();
+}
+
+function prolific_dealers_activate() {
+	if ( ! class_exists( 'WooCommerce' ) ) {
+		return;
+	}
+
+	$customer = get_role( 'customer' );
+	$caps     = $customer ? $customer->capabilities : [];
+
+	add_role( 'dealer', 'Dealer', $caps );
+}
+
+function prolific_dealers_deactivate() {
+	remove_role( 'dealer' );
 }
 
 function prolific_dealers_wc_missing_notice() {
