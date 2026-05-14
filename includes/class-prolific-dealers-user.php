@@ -55,6 +55,17 @@ class Prolific_Dealers_User {
 					<p class="description"><?php esc_html_e( 'Overrides tier and product-level discounts. Leave empty to use defaults.', 'prolific-dealers' ); ?></p>
 				</td>
 			</tr>
+			<tr>
+				<th><label for="prolific_dealer_status"><?php esc_html_e( 'Dealer Status', 'prolific-dealers' ); ?></label></th>
+				<td>
+					<?php $status = get_user_meta( $user->ID, '_prolific_dealer_status', true ); ?>
+					<select name="prolific_dealer_status" id="prolific_dealer_status">
+						<option value="approved" <?php selected( $status, 'approved' ); ?>><?php esc_html_e( 'Approved', 'prolific-dealers' ); ?></option>
+						<option value="pending" <?php selected( $status, 'pending' ); ?>><?php esc_html_e( 'Pending', 'prolific-dealers' ); ?></option>
+					</select>
+					<p class="description"><?php esc_html_e( 'Pending dealers cannot log in.', 'prolific-dealers' ); ?></p>
+				</td>
+			</tr>
 		</table>
 		<?php
 	}
@@ -76,6 +87,11 @@ class Prolific_Dealers_User {
 			delete_user_meta( $user_id, '_prolific_dealer_discount_override' );
 		} else {
 			update_user_meta( $user_id, '_prolific_dealer_discount_override', $override );
+		}
+
+		if ( isset( $_POST['prolific_dealer_status'] ) ) {
+			$status = sanitize_text_field( $_POST['prolific_dealer_status'] );
+			update_user_meta( $user_id, '_prolific_dealer_status', $status );
 		}
 	}
 
