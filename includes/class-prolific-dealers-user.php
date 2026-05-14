@@ -46,6 +46,15 @@ class Prolific_Dealers_User {
 					<p class="description"><?php esc_html_e( 'Select the dealer pricing tier for this user.', 'prolific-dealers' ); ?></p>
 				</td>
 			</tr>
+			<tr>
+				<th><label for="prolific_dealer_discount_override"><?php esc_html_e( 'Discount Override (%)', 'prolific-dealers' ); ?></label></th>
+				<td>
+					<input type="number" id="prolific_dealer_discount_override" name="prolific_dealer_discount_override"
+						value="<?php echo esc_attr( get_user_meta( $user->ID, '_prolific_dealer_discount_override', true ) ); ?>"
+						min="0" max="100" step="1" style="width:80px;" />
+					<p class="description"><?php esc_html_e( 'Overrides tier and product-level discounts. Leave empty to use defaults.', 'prolific-dealers' ); ?></p>
+				</td>
+			</tr>
 		</table>
 		<?php
 	}
@@ -61,6 +70,13 @@ class Prolific_Dealers_User {
 
 		$tier = sanitize_text_field( $_POST['prolific_dealer_tier'] );
 		update_user_meta( $user_id, '_prolific_dealer_tier', $tier );
+
+		$override = isset( $_POST['prolific_dealer_discount_override'] ) ? sanitize_text_field( $_POST['prolific_dealer_discount_override'] ) : '';
+		if ( '' === $override ) {
+			delete_user_meta( $user_id, '_prolific_dealer_discount_override' );
+		} else {
+			update_user_meta( $user_id, '_prolific_dealer_discount_override', $override );
+		}
 	}
 
 	public static function get_dealer_tier( $user_id = null ) {
@@ -68,5 +84,16 @@ class Prolific_Dealers_User {
 			$user_id = get_current_user_id();
 		}
 		return absint( get_user_meta( $user_id, '_prolific_dealer_tier', true ) );
+	}
+
+	public static function get_discount_override( $user_id = null ) {
+		if ( ! $user_id ) {
+			$user_id = get_current_user_id();
+		}
+		$override = get_user_meta( $user_id, '_prolific_dealer_discount_override', true );
+		if ( '' === $override ) {
+			return null;
+		}
+		return (float) $override;
 	}
 }

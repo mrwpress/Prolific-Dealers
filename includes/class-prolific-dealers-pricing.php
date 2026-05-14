@@ -82,6 +82,11 @@ class Prolific_Dealers_Pricing {
 	}
 
 	public static function get_discount_for_current_user( $product = null ) {
+		$user_override = Prolific_Dealers_User::get_discount_override();
+		if ( null !== $user_override ) {
+			return $user_override;
+		}
+
 		if ( $product ) {
 			$product_id       = $product->get_parent_id() ?: $product->get_id();
 			$product_discount = get_post_meta( $product_id, '_prolific_dealer_discount', true );
@@ -96,13 +101,14 @@ class Prolific_Dealers_Pricing {
 
 	public static function variation_prices_hash( $hash, $product = null, $for_display = false ) {
 		if ( Prolific_Dealers::is_dealer() ) {
+			$user_override    = Prolific_Dealers_User::get_discount_override();
 			$tier             = Prolific_Dealers_User::get_dealer_tier();
 			$discount         = Prolific_Dealers_Settings::get_tier_discount( $tier );
 			$product_discount = '';
 			if ( $product ) {
 				$product_discount = get_post_meta( $product->get_id(), '_prolific_dealer_discount', true );
 			}
-			$hash[] = 'dealer_' . $discount . '_' . $product_discount;
+			$hash[] = 'dealer_' . $user_override . '_' . $discount . '_' . $product_discount;
 		}
 		return $hash;
 	}
