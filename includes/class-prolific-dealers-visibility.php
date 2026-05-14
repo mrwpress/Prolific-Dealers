@@ -59,11 +59,20 @@ class Prolific_Dealers_Visibility {
 			return;
 		}
 
-		$js = "jQuery(function($){
-			var cb = $('#prolific_dealer_only');
-			var tiers = $('#prolific_dealer_only_tiers');
-			cb.on('change', function(){ tiers.toggle(cb.is(':checked')); });
-		});";
+		$js = "
+			console.log('Prolific Dealers: JS loaded');
+			jQuery(function($){
+				console.log('Prolific Dealers: DOM ready');
+				var cb = $('#prolific_dealer_only');
+				var tiers = $('#prolific_dealer_only_tiers');
+				console.log('Prolific Dealers: checkbox found:', cb.length);
+				console.log('Prolific Dealers: tiers div found:', tiers.length);
+				cb.on('change', function(){
+					console.log('Prolific Dealers: checkbox changed, checked:', cb.is(':checked'));
+					tiers.toggle(cb.is(':checked'));
+				});
+			});
+		";
 
 		wp_add_inline_script( 'jquery', $js );
 	}
