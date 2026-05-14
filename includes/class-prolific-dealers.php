@@ -20,9 +20,13 @@ class Prolific_Dealers {
 	}
 
 	private function init_hooks() {
+		require_once PROLIFIC_DEALERS_PATH . 'includes/class-prolific-dealers-settings.php';
+		require_once PROLIFIC_DEALERS_PATH . 'includes/class-prolific-dealers-user.php';
 		require_once PROLIFIC_DEALERS_PATH . 'includes/class-prolific-dealers-pricing.php';
 		require_once PROLIFIC_DEALERS_PATH . 'includes/class-prolific-dealers-visibility.php';
 
+		Prolific_Dealers_Settings::init();
+		Prolific_Dealers_User::init();
 		Prolific_Dealers_Pricing::init();
 		Prolific_Dealers_Visibility::init();
 	}
