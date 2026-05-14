@@ -11,6 +11,7 @@ class Prolific_Dealers_Visibility {
 		add_action( 'save_post_product', [ __CLASS__, 'save_meta_box' ] );
 		add_action( 'pre_get_posts', [ __CLASS__, 'hide_dealer_only_products' ] );
 		add_filter( 'woocommerce_product_is_visible', [ __CLASS__, 'filter_product_visibility' ], 10, 2 );
+		add_action( 'admin_print_footer_scripts', [ __CLASS__, 'meta_box_js' ] );
 	}
 
 	public static function register_meta_box() {
@@ -45,10 +46,20 @@ class Prolific_Dealers_Visibility {
 			<?php endfor; ?>
 			<p class="description" style="margin-top:6px;"><?php esc_html_e( 'Leave all unchecked to show to all dealers.', 'prolific-dealers' ); ?></p>
 		</div>
+		<?php
+	}
+
+	public static function meta_box_js() {
+		$screen = get_current_screen();
+		if ( ! $screen || 'product' !== $screen->id ) {
+			return;
+		}
+		?>
 		<script>
 		(function(){
 			var cb = document.getElementById('prolific_dealer_only');
 			var tiers = document.getElementById('prolific_dealer_only_tiers');
+			if ( ! cb || ! tiers ) return;
 			cb.addEventListener('change', function(){ tiers.style.display = cb.checked ? '' : 'none'; });
 		})();
 		</script>
