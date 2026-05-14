@@ -8,11 +8,8 @@ class Prolific_Dealers_Pricing {
 
 	public static function init() {
 		add_filter( 'woocommerce_product_get_price', [ __CLASS__, 'apply_dealer_discount' ], 10, 2 );
-		add_filter( 'woocommerce_product_get_regular_price', [ __CLASS__, 'apply_dealer_discount' ], 10, 2 );
 		add_filter( 'woocommerce_product_variation_get_price', [ __CLASS__, 'apply_dealer_discount' ], 10, 2 );
-		add_filter( 'woocommerce_product_variation_get_regular_price', [ __CLASS__, 'apply_dealer_discount' ], 10, 2 );
 		add_filter( 'woocommerce_variation_prices_price', [ __CLASS__, 'apply_dealer_discount' ], 10, 2 );
-		add_filter( 'woocommerce_variation_prices_regular_price', [ __CLASS__, 'apply_dealer_discount' ], 10, 2 );
 		add_filter( 'woocommerce_get_variation_prices_hash', [ __CLASS__, 'variation_prices_hash' ], 10, 3 );
 		add_action( 'add_meta_boxes', [ __CLASS__, 'register_meta_box' ] );
 		add_action( 'save_post_product', [ __CLASS__, 'save_meta_box' ] );
