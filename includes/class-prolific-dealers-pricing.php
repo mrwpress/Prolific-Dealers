@@ -21,12 +21,24 @@ class Prolific_Dealers_Pricing {
 			return $price;
 		}
 
-		$discount = PROLIFIC_DEALERS_DISCOUNT / 100;
-		return (string) round( (float) $price * ( 1 - $discount ), 2 );
+		$discount = self::get_discount_for_current_user();
+		if ( $discount <= 0 ) {
+			return $price;
+		}
+
+		return (string) round( (float) $price * ( 1 - $discount / 100 ), 2 );
 	}
-    public static function variation_prices_hash( $hash ) {
+
+	public static function get_discount_for_current_user() {
+		$tier     = Prolific_Dealers_User::get_dealer_tier();
+		$discount = Prolific_Dealers_Settings::get_tier_discount( $tier );
+		return $discount;
+	}
+
+	public static function variation_prices_hash( $hash ) {
 		if ( Prolific_Dealers::is_dealer() ) {
-			$hash[] = 'dealer_' . PROLIFIC_DEALERS_DISCOUNT;
+			$discount = self::get_discount_for_current_user();
+			$hash[]   = 'dealer_' . $discount;
 		}
 		return $hash;
 	}
