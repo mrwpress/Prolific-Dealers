@@ -31,7 +31,7 @@ class Prolific_Dealers_Visibility {
 		$tier_visibility = get_post_meta( $post->ID, '_prolific_dealer_only_tiers', true ) ?: [];
 		?>
 		<label>
-			<input type="checkbox" name="prolific_dealer_only" id="prolific_dealer_only" value="1" <?php checked( $checked, '1' ); ?> />
+			<input type="checkbox" name="prolific_dealer_only" id="prolific_dealer_only_cb" value="1" <?php checked( $checked, '1' ); ?> />
 			<?php esc_html_e( 'Restrict this product to dealers only', 'prolific-dealers' ); ?>
 		</label>
 		<div id="prolific_dealer_only_tiers" style="margin-top:10px;<?php echo '1' !== $checked ? 'display:none;' : ''; ?>">
@@ -59,20 +59,11 @@ class Prolific_Dealers_Visibility {
 			return;
 		}
 
-		$js = "
-			console.log('Prolific Dealers: JS loaded');
-			jQuery(function($){
-				console.log('Prolific Dealers: DOM ready');
-				var cb = $('#prolific_dealer_only');
-				var tiers = $('#prolific_dealer_only_tiers');
-				console.log('Prolific Dealers: checkbox found:', cb.length);
-				console.log('Prolific Dealers: tiers div found:', tiers.length);
-				cb.on('change', function(){
-					console.log('Prolific Dealers: checkbox changed, checked:', cb.is(':checked'));
-					tiers.toggle(cb.is(':checked'));
-				});
-			});
-		";
+		$js = "jQuery(function($){
+			var cb = $('#prolific_dealer_only_cb');
+			var tiers = $('#prolific_dealer_only_tiers');
+			cb.on('change', function(){ tiers.toggle(cb.is(':checked')); });
+		});";
 
 		wp_add_inline_script( 'jquery', $js );
 	}
