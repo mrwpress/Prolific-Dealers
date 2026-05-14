@@ -9,7 +9,8 @@ class Prolific_Dealers_Visibility {
 	public static function init() {
 		add_action( 'add_meta_boxes', [ __CLASS__, 'register_meta_box' ] );
 		add_action( 'save_post_product', [ __CLASS__, 'save_meta_box' ] );
-		add_action( 'pre_get_posts', [ __CLASS__, 'hide_dealer_only_products' ] );
+		add_action( 'woocommerce_product_query', [ __CLASS__, 'filter_product_query' ] );
+		add_filter( 'woocommerce_shortcode_products_query', [ __CLASS__, 'filter_shortcode_query' ] );
 		add_filter( 'woocommerce_product_is_visible', [ __CLASS__, 'filter_product_visibility' ], 10, 2 );
 		add_action( 'admin_enqueue_scripts', [ __CLASS__, 'enqueue_meta_box_js' ] );
 	}
@@ -94,21 +95,8 @@ class Prolific_Dealers_Visibility {
 		}
 	}
 
-	public static function hide_dealer_only_products( $query ) {
-		if ( is_admin() || ! $query->is_main_query() ) {
-			return;
-		}
-		if ( Prolific_Dealers::is_dealer() ) {
-			return;
-		}
-
-		$post_type = $query->get( 'post_type' );
-		if ( 'product' !== $post_type && ! $query->is_post_type_archive( 'product' ) && ! $query->is_tax( get_object_taxonomies( 'product' ) ) ) {
-			return;
-		}
-
-		$meta_query = $query->get( 'meta_query' ) ?: [];
-		$meta_query[] = [
+	private static function get_dealer_only_meta_query() {
+		return [
 			'relation' => 'OR',
 			[
 				'key'     => '_prolific_dealer_only',
@@ -120,7 +108,26 @@ class Prolific_Dealers_Visibility {
 				'compare' => '!=',
 			],
 		];
+	}
+
+	public static function filter_product_query( $query ) {
+		if ( Prolific_Dealers::is_dealer() ) {
+			return;
+		}
+
+		$meta_query = $query->get( 'meta_query' ) ?: [];
+		$meta_query[] = self::get_dealer_only_meta_query();
 		$query->set( 'meta_query', $meta_query );
+	}
+
+	public static function filter_shortcode_query( $query_args ) {
+		if ( Prolific_Dealers::is_dealer() ) {
+			return $query_args;
+		}
+
+		$query_args['meta_query'] = $query_args['meta_query'] ?? [];
+		$query_args['meta_query'][] = self::get_dealer_only_meta_query();
+		return $query_args;
 	}
 
 	public static function filter_product_visibility( $visible, $product_id ) {
