@@ -28,18 +28,22 @@ class Prolific_Dealers_Pricing {
 
 	public static function render_meta_box( $post ) {
 		wp_nonce_field( 'prolific_dealer_discount', 'prolific_dealer_discount_nonce' );
-		$value = get_post_meta( $post->ID, '_prolific_dealer_discount', true );
+		$overrides = get_post_meta( $post->ID, '_prolific_dealer_discount_tiers', true ) ?: [];
 		?>
-		<p>
-			<label for="prolific_dealer_discount">
-				<?php esc_html_e( 'Discount % (overrides tier default)', 'prolific-dealers' ); ?>
-			</label>
-		</p>
-		<p>
-			<input type="number" id="prolific_dealer_discount" name="prolific_dealer_discount"
-				value="<?php echo esc_attr( $value ); ?>" min="0" max="100" step="1" style="width:80px;" />
-			<span class="description"><?php esc_html_e( 'Leave empty to use tier default.', 'prolific-dealers' ); ?></span>
-		</p>
+		<p class="description"><?php esc_html_e( 'Leave empty to use the default discount for that tier.', 'prolific-dealers' ); ?></p>
+		<?php for ( $i = 1; $i <= 10; $i++ ) :
+			$val = isset( $overrides[ $i ] ) ? $overrides[ $i ] : '';
+			?>
+			<p style="display:flex;align-items:center;gap:6px;margin:4px 0;">
+				<label for="prolific_dealer_discount_tier_<?php echo $i; ?>" style="min-width:50px;">
+					<?php printf( esc_html__( 'Tier %d', 'prolific-dealers' ), $i ); ?>
+				</label>
+				<input type="number" id="prolific_dealer_discount_tier_<?php echo $i; ?>"
+					name="prolific_dealer_discount_tier[<?php echo $i; ?>]"
+					value="<?php echo esc_attr( $val ); ?>" min="0" max="100" step="1" style="width:60px;" />
+				<span>%</span>
+			</p>
+		<?php endfor; ?>
 		<?php
 	}
 
@@ -57,12 +61,22 @@ class Prolific_Dealers_Pricing {
 			return;
 		}
 
-		$value = isset( $_POST['prolific_dealer_discount'] ) ? sanitize_text_field( $_POST['prolific_dealer_discount'] ) : '';
-		if ( '' === $value ) {
-			delete_post_meta( $post_id, '_prolific_dealer_discount' );
-			return;
+		$tiers = isset( $_POST['prolific_dealer_discount_tier'] ) ? (array) $_POST['prolific_dealer_discount_tier'] : [];
+		$clean = [];
+		for ( $i = 1; $i <= 10; $i++ ) {
+			if ( isset( $tiers[ $i ] ) && '' !== $tiers[ $i ] ) {
+				$clean[ $i ] = sanitize_text_field( $tiers[ $i ] );
+			}
 		}
-		update_post_meta( $post_id, '_prolific_dealer_discount', $value );
+
+		if ( empty( $clean ) ) {
+			delete_post_meta( $post_id, '_prolific_dealer_discount_tiers' );
+		} else {
+			update_post_meta( $post_id, '_prolific_dealer_discount_tiers', $clean );
+		}
+
+		// Clean up legacy single-value meta if present.
+		delete_post_meta( $post_id, '_prolific_dealer_discount' );
 	}
 
 	public static function apply_dealer_discount( $price, $product ) {
@@ -84,28 +98,30 @@ class Prolific_Dealers_Pricing {
 			return $user_override;
 		}
 
+		$tier = Prolific_Dealers_User::get_dealer_tier();
+
 		if ( $product ) {
-			$product_id       = $product->get_parent_id() ?: $product->get_id();
-			$product_discount = get_post_meta( $product_id, '_prolific_dealer_discount', true );
-			if ( '' !== $product_discount ) {
-				return (float) $product_discount;
+			$product_id = $product->get_parent_id() ?: $product->get_id();
+			$overrides  = get_post_meta( $product_id, '_prolific_dealer_discount_tiers', true ) ?: [];
+			if ( isset( $overrides[ $tier ] ) && '' !== $overrides[ $tier ] ) {
+				return (float) $overrides[ $tier ];
 			}
 		}
 
-		$tier = Prolific_Dealers_User::get_dealer_tier();
 		return Prolific_Dealers_Settings::get_tier_discount( $tier );
 	}
 
 	public static function variation_prices_hash( $hash, $product = null, $for_display = false ) {
 		if ( Prolific_Dealers::is_dealer() ) {
-			$user_override    = Prolific_Dealers_User::get_discount_override();
-			$tier             = Prolific_Dealers_User::get_dealer_tier();
-			$discount         = Prolific_Dealers_Settings::get_tier_discount( $tier );
-			$product_discount = '';
+			$user_override = Prolific_Dealers_User::get_discount_override();
+			$tier          = Prolific_Dealers_User::get_dealer_tier();
+			$discount      = Prolific_Dealers_Settings::get_tier_discount( $tier );
+			$tier_override = '';
 			if ( $product ) {
-				$product_discount = get_post_meta( $product->get_id(), '_prolific_dealer_discount', true );
+				$overrides = get_post_meta( $product->get_id(), '_prolific_dealer_discount_tiers', true ) ?: [];
+				$tier_override = $overrides[ $tier ] ?? '';
 			}
-			$hash[] = 'dealer_' . $user_override . '_' . $discount . '_' . $product_discount;
+			$hash[] = 'dealer_' . $user_override . '_' . $tier . '_' . $discount . '_' . $tier_override;
 		}
 		return $hash;
 	}

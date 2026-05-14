@@ -26,12 +26,32 @@ class Prolific_Dealers_Visibility {
 
 	public static function render_meta_box( $post ) {
 		wp_nonce_field( 'prolific_dealer_only', 'prolific_dealer_only_nonce' );
-		$checked = get_post_meta( $post->ID, '_prolific_dealer_only', true );
+		$checked    = get_post_meta( $post->ID, '_prolific_dealer_only', true );
+		$tier_visibility = get_post_meta( $post->ID, '_prolific_dealer_only_tiers', true ) ?: [];
 		?>
 		<label>
-			<input type="checkbox" name="prolific_dealer_only" value="1" <?php checked( $checked, '1' ); ?> />
-			Restrict this product to dealers only
+			<input type="checkbox" name="prolific_dealer_only" id="prolific_dealer_only" value="1" <?php checked( $checked, '1' ); ?> />
+			<?php esc_html_e( 'Restrict this product to dealers only', 'prolific-dealers' ); ?>
 		</label>
+		<div id="prolific_dealer_only_tiers" style="margin-top:10px;<?php echo '1' !== $checked ? 'display:none;' : ''; ?>">
+			<p class="description"><?php esc_html_e( 'Show this product to specific tiers:', 'prolific-dealers' ); ?></p>
+			<?php for ( $i = 1; $i <= 10; $i++ ) :
+				$tier_checked = in_array( $i, array_map( 'intval', $tier_visibility ), true );
+				?>
+				<label style="display:block;margin:2px 0;">
+					<input type="checkbox" name="prolific_dealer_only_tiers[]" value="<?php echo $i; ?>" <?php checked( $tier_checked ); ?> />
+					<?php printf( esc_html__( 'Tier %d', 'prolific-dealers' ), $i ); ?>
+				</label>
+			<?php endfor; ?>
+			<p class="description" style="margin-top:6px;"><?php esc_html_e( 'Leave all unchecked to show to all dealers.', 'prolific-dealers' ); ?></p>
+		</div>
+		<script>
+		(function(){
+			var cb = document.getElementById('prolific_dealer_only');
+			var tiers = document.getElementById('prolific_dealer_only_tiers');
+			cb.addEventListener('change', function(){ tiers.style.display = cb.checked ? '' : 'none'; });
+		})();
+		</script>
 		<?php
 	}
 
@@ -51,6 +71,14 @@ class Prolific_Dealers_Visibility {
 
 		$value = isset( $_POST['prolific_dealer_only'] ) ? '1' : '';
 		update_post_meta( $post_id, '_prolific_dealer_only', $value );
+
+		if ( '1' === $value && ! empty( $_POST['prolific_dealer_only_tiers'] ) ) {
+			$tiers = array_map( 'absint', (array) $_POST['prolific_dealer_only_tiers'] );
+			$tiers = array_filter( $tiers, function( $t ) { return $t >= 1 && $t <= 10; } );
+			update_post_meta( $post_id, '_prolific_dealer_only_tiers', array_values( $tiers ) );
+		} else {
+			delete_post_meta( $post_id, '_prolific_dealer_only_tiers' );
+		}
 	}
 
 	public static function hide_dealer_only_products( $query ) {
@@ -83,12 +111,23 @@ class Prolific_Dealers_Visibility {
 	}
 
 	public static function filter_product_visibility( $visible, $product_id ) {
-		if ( Prolific_Dealers::is_dealer() ) {
+		$dealer_only = get_post_meta( $product_id, '_prolific_dealer_only', true );
+
+		if ( '1' !== $dealer_only ) {
 			return $visible;
 		}
 
-		$dealer_only = get_post_meta( $product_id, '_prolific_dealer_only', true );
-		if ( '1' === $dealer_only ) {
+		if ( ! Prolific_Dealers::is_dealer() ) {
+			return false;
+		}
+
+		$allowed_tiers = get_post_meta( $product_id, '_prolific_dealer_only_tiers', true ) ?: [];
+		if ( empty( $allowed_tiers ) ) {
+			return $visible;
+		}
+
+		$user_tier = Prolific_Dealers_User::get_dealer_tier();
+		if ( ! in_array( $user_tier, array_map( 'intval', $allowed_tiers ), true ) ) {
 			return false;
 		}
 
