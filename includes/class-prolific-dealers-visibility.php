@@ -11,7 +11,7 @@ class Prolific_Dealers_Visibility {
 		add_action( 'save_post_product', [ __CLASS__, 'save_meta_box' ] );
 		add_action( 'pre_get_posts', [ __CLASS__, 'hide_dealer_only_products' ] );
 		add_filter( 'woocommerce_product_is_visible', [ __CLASS__, 'filter_product_visibility' ], 10, 2 );
-		add_action( 'admin_print_footer_scripts', [ __CLASS__, 'meta_box_js' ] );
+		add_action( 'admin_enqueue_scripts', [ __CLASS__, 'enqueue_meta_box_js' ] );
 	}
 
 	public static function register_meta_box() {
@@ -49,21 +49,23 @@ class Prolific_Dealers_Visibility {
 		<?php
 	}
 
-	public static function meta_box_js() {
+	public static function enqueue_meta_box_js( $hook ) {
+		if ( 'post.php' !== $hook && 'post-new.php' !== $hook ) {
+			return;
+		}
+
 		$screen = get_current_screen();
 		if ( ! $screen || 'product' !== $screen->id ) {
 			return;
 		}
-		?>
-		<script>
-		(function(){
-			var cb = document.getElementById('prolific_dealer_only');
-			var tiers = document.getElementById('prolific_dealer_only_tiers');
-			if ( ! cb || ! tiers ) return;
-			cb.addEventListener('change', function(){ tiers.style.display = cb.checked ? '' : 'none'; });
-		})();
-		</script>
-		<?php
+
+		$js = "jQuery(function($){
+			var cb = $('#prolific_dealer_only');
+			var tiers = $('#prolific_dealer_only_tiers');
+			cb.on('change', function(){ tiers.toggle(cb.is(':checked')); });
+		});";
+
+		wp_add_inline_script( 'jquery', $js );
 	}
 
 	public static function save_meta_box( $post_id ) {
