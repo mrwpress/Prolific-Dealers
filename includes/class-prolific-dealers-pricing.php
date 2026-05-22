@@ -36,7 +36,7 @@ class Prolific_Dealers_Pricing {
 			?>
 			<p style="display:flex;align-items:center;gap:6px;margin:4px 0;">
 				<label for="prolific_dealer_discount_tier_<?php echo $i; ?>" style="min-width:50px;">
-					<?php printf( esc_html__( 'Tier %d', 'prolific-dealers' ), $i ); ?>
+					<?php echo esc_html( Prolific_Dealers_Settings::get_tier_label( $i ) ); ?>
 				</label>
 				<input type="number" id="prolific_dealer_discount_tier_<?php echo $i; ?>"
 					name="prolific_dealer_discount_tier[<?php echo $i; ?>]"

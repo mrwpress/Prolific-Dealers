@@ -12,9 +12,21 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'PROLIFIC_DEALERS_VERSION', '1.1' );
+define( 'PROLIFIC_DEALERS_VERSION', '1.2' );
 define( 'PROLIFIC_DEALERS_PATH', plugin_dir_path( __FILE__ ) );
 define( 'PROLIFIC_DEALERS_URL', plugin_dir_url( __FILE__ ) );
+define( 'PROLIFIC_DEALERS_DEFAULT_TIER_LABELS', [
+	1  => 'Dealer5',
+	2  => 'Dealer10',
+	3  => 'Dealer15',
+	4  => 'Dealer20',
+	5  => 'Dealer25',
+	6  => 'Dealer30',
+	7  => 'Dealer35',
+	8  => 'Dealer40',
+	9  => 'CarAudio',
+	10 => 'Wholesale',
+] );
 
 register_activation_hook( __FILE__, 'prolific_dealers_activate' );
 register_deactivation_hook( __FILE__, 'prolific_dealers_deactivate' );
