@@ -35,9 +35,9 @@ class Prolific_Dealers_User {
 							<option value="<?php echo esc_attr( $i ); ?>" <?php selected( $tier, $i ); ?>>
 								<?php
 								printf(
-									esc_html__( 'Tier %1$d (%2$s%%)', 'prolific-dealers' ),
-									$i,
-									Prolific_Dealers_Settings::get_tier_discount( $i )
+									'%s (%s%%)',
+									esc_html( Prolific_Dealers_Settings::get_tier_label( $i ) ),
+									esc_html( Prolific_Dealers_Settings::get_tier_discount( $i ) )
 								);
 								?>
 							</option>

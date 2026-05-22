@@ -42,7 +42,7 @@ class Prolific_Dealers_Visibility {
 				?>
 				<label style="display:block;margin:2px 0;">
 					<input type="checkbox" name="prolific_dealer_only_tiers[]" value="<?php echo $i; ?>" <?php checked( $tier_checked ); ?> />
-					<?php printf( esc_html__( 'Tier %d', 'prolific-dealers' ), $i ); ?>
+					<?php echo esc_html( Prolific_Dealers_Settings::get_tier_label( $i ) ); ?>
 				</label>
 			<?php endfor; ?>
 			<p class="description" style="margin-top:6px;"><?php esc_html_e( 'Leave all unchecked to show to all dealers.', 'prolific-dealers' ); ?></p>
