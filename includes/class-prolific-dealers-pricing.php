@@ -34,7 +34,7 @@ class Prolific_Dealers_Pricing {
 		<?php for ( $i = 1; $i <= 10; $i++ ) :
 			$val = isset( $overrides[ $i ] ) ? $overrides[ $i ] : '';
 			?>
-			<p style="display:flex;align-items:center;gap:6px;margin:4px 0;">
+			<p class="prolific-discount-tier-row" data-tier="<?php echo $i; ?>" style="display:flex;align-items:center;gap:6px;margin:4px 0;">
 				<label for="prolific_dealer_discount_tier_<?php echo $i; ?>" style="min-width:50px;">
 					<?php echo esc_html( Prolific_Dealers_Settings::get_tier_label( $i ) ); ?>
 				</label>

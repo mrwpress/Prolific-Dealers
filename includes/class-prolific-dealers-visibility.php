@@ -91,9 +91,28 @@ class Prolific_Dealers_Visibility {
 		$js = "jQuery(function($){
 			var radios = $('input[name=\"prolific_product_visibility\"]');
 			var tiers = $('#prolific_dealer_only_tiers');
-			radios.on('change', function(){
-				tiers.toggle($('input[name=\"prolific_product_visibility\"]:checked').val() === 'dealers');
-			});
+			var discountBox = $('#prolific_dealer_discount');
+			var tierCbs = $('input[name=\"prolific_dealer_only_tiers[]\"]');
+
+			function syncUI(){
+				var mode = $('input[name=\"prolific_product_visibility\"]:checked').val();
+				var isDealers = mode === 'dealers';
+				tiers.toggle(isDealers);
+				discountBox.toggle(isDealers);
+				if(isDealers){ syncDiscountRows(); }
+			}
+
+			function syncDiscountRows(){
+				var checked = tierCbs.filter(':checked').map(function(){ return $(this).val(); }).get();
+				$('.prolific-discount-tier-row').each(function(){
+					var tier = $(this).data('tier').toString();
+					$(this).toggle(checked.length === 0 || checked.indexOf(tier) !== -1);
+				});
+			}
+
+			radios.on('change', syncUI);
+			tierCbs.on('change', syncDiscountRows);
+			syncUI();
 		});";
 
 		wp_add_inline_script( 'jquery', $js );
