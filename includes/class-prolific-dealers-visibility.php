@@ -27,45 +27,66 @@ class Prolific_Dealers_Visibility {
 	}
 
 	/**
-	 * Get the visibility mode for a product, with backwards compat for old _prolific_dealer_only meta.
+	 * Check whether a product is visible to customers.
 	 */
-	public static function get_visibility_mode( $product_id ) {
-		$mode = get_post_meta( $product_id, '_prolific_product_visibility', true );
+	public static function is_visible_to_customers( $product_id ) {
+		$val = get_post_meta( $product_id, '_prolific_visible_to_customers', true );
 
-		if ( $mode ) {
-			return $mode;
+		// Not yet set — check legacy meta for backwards compat
+		if ( '' === $val ) {
+			$legacy_mode = get_post_meta( $product_id, '_prolific_product_visibility', true );
+			if ( 'dealers' === $legacy_mode ) {
+				return false;
+			}
+
+			$legacy_dealer_only = get_post_meta( $product_id, '_prolific_dealer_only', true );
+			if ( '1' === $legacy_dealer_only ) {
+				return false;
+			}
+
+			return true;
 		}
 
-		// Backwards compat: migrate old checkbox meta
-		$legacy = get_post_meta( $product_id, '_prolific_dealer_only', true );
-		if ( '1' === $legacy ) {
-			return 'dealers';
+		return '1' === $val;
+	}
+
+	/**
+	 * Check whether a product is visible to dealers.
+	 */
+	public static function is_visible_to_dealers( $product_id ) {
+		$val = get_post_meta( $product_id, '_prolific_visible_to_dealers', true );
+
+		// Not yet set — check legacy meta for backwards compat
+		if ( '' === $val ) {
+			$legacy_mode = get_post_meta( $product_id, '_prolific_product_visibility', true );
+			if ( 'customers' === $legacy_mode ) {
+				return false;
+			}
+
+			return true;
 		}
 
-		return 'everyone';
+		return '1' === $val;
 	}
 
 	public static function render_meta_box( $post ) {
 		wp_nonce_field( 'prolific_product_visibility', 'prolific_product_visibility_nonce' );
-		$mode            = self::get_visibility_mode( $post->ID );
+		$show_customers  = self::is_visible_to_customers( $post->ID );
+		$show_dealers    = self::is_visible_to_dealers( $post->ID );
 		$tier_visibility = get_post_meta( $post->ID, '_prolific_dealer_only_tiers', true ) ?: [];
 		$overrides       = get_post_meta( $post->ID, '_prolific_dealer_discount_tiers', true ) ?: [];
-		$modes = [
-			'everyone'  => __( 'Everyone', 'prolific-dealers' ),
-			'dealers'   => __( 'Dealers Only', 'prolific-dealers' ),
-			'customers' => __( 'Customers Only', 'prolific-dealers' ),
-		];
 		?>
-		<fieldset>
-			<?php foreach ( $modes as $value => $label ) : ?>
-				<label style="display:block;margin:4px 0;">
-					<input type="radio" name="prolific_product_visibility" value="<?php echo esc_attr( $value ); ?>" <?php checked( $mode, $value ); ?> />
-					<?php echo esc_html( $label ); ?>
-				</label>
-			<?php endforeach; ?>
-		</fieldset>
-		<div id="prolific_dealer_only_tiers" style="margin-top:10px;<?php echo 'dealers' !== $mode ? 'display:none;' : ''; ?>">
-			<p class="description"><?php esc_html_e( 'Show this product to specific tiers:', 'prolific-dealers' ); ?></p>
+		<p class="description"><?php esc_html_e( 'Who can see this product?', 'prolific-dealers' ); ?></p>
+		<label style="display:block;margin:4px 0;">
+			<input type="checkbox" name="prolific_visible_to_customers" value="1" <?php checked( $show_customers ); ?> />
+			<?php esc_html_e( 'Customers', 'prolific-dealers' ); ?>
+		</label>
+		<label style="display:block;margin:4px 0;">
+			<input type="checkbox" id="prolific_visible_to_dealers_cb" name="prolific_visible_to_dealers" value="1" <?php checked( $show_dealers ); ?> />
+			<?php esc_html_e( 'Dealers', 'prolific-dealers' ); ?>
+		</label>
+		<div id="prolific_dealer_tiers" style="margin:6px 0 0 24px;<?php echo ! $show_dealers ? 'display:none;' : ''; ?>">
+			<p class="description"><?php esc_html_e( 'Limit to specific tiers:', 'prolific-dealers' ); ?></p>
 			<?php for ( $i = 1; $i <= 10; $i++ ) :
 				$tier_checked = in_array( $i, array_map( 'intval', $tier_visibility ), true );
 				$discount_val = isset( $overrides[ $i ] ) ? $overrides[ $i ] : '';
@@ -101,11 +122,11 @@ class Prolific_Dealers_Visibility {
 		}
 
 		$js = "jQuery(function($){
-			var radios = $('input[name=\"prolific_product_visibility\"]');
-			var tiers = $('#prolific_dealer_only_tiers');
+			var dealerCb = $('#prolific_visible_to_dealers_cb');
+			var tierWrap = $('#prolific_dealer_tiers');
 
-			radios.on('change', function(){
-				tiers.toggle($('input[name=\"prolific_product_visibility\"]:checked').val() === 'dealers');
+			dealerCb.on('change', function(){
+				tierWrap.toggle(dealerCb.is(':checked'));
 			});
 
 			$('.prolific-tier-cb').on('change', function(){
@@ -131,18 +152,17 @@ class Prolific_Dealers_Visibility {
 			return;
 		}
 
-		$allowed = [ 'everyone', 'dealers', 'customers' ];
-		$mode    = isset( $_POST['prolific_product_visibility'] ) ? sanitize_text_field( wp_unslash( $_POST['prolific_product_visibility'] ) ) : 'everyone';
-		if ( ! in_array( $mode, $allowed, true ) ) {
-			$mode = 'everyone';
-		}
+		$show_customers = ! empty( $_POST['prolific_visible_to_customers'] ) ? '1' : '0';
+		$show_dealers   = ! empty( $_POST['prolific_visible_to_dealers'] ) ? '1' : '0';
 
-		update_post_meta( $post_id, '_prolific_product_visibility', $mode );
+		update_post_meta( $post_id, '_prolific_visible_to_customers', $show_customers );
+		update_post_meta( $post_id, '_prolific_visible_to_dealers', $show_dealers );
 
 		// Clean up legacy meta
 		delete_post_meta( $post_id, '_prolific_dealer_only' );
+		delete_post_meta( $post_id, '_prolific_product_visibility' );
 
-		if ( 'dealers' === $mode && ! empty( $_POST['prolific_dealer_only_tiers'] ) ) {
+		if ( '1' === $show_dealers && ! empty( $_POST['prolific_dealer_only_tiers'] ) ) {
 			$tiers = array_map( 'absint', (array) $_POST['prolific_dealer_only_tiers'] );
 			$tiers = array_filter( $tiers, function( $t ) { return $t >= 1 && $t <= 10; } );
 			update_post_meta( $post_id, '_prolific_dealer_only_tiers', array_values( $tiers ) );
@@ -169,33 +189,69 @@ class Prolific_Dealers_Visibility {
 		delete_post_meta( $post_id, '_prolific_dealer_discount' );
 	}
 
-	private static function get_hidden_mode_meta_query( $mode ) {
-		return [
-			'relation' => 'OR',
-			[
-				'key'     => '_prolific_product_visibility',
-				'compare' => 'NOT EXISTS',
-			],
-			[
-				'key'     => '_prolific_product_visibility',
-				'value'   => $mode,
-				'compare' => '!=',
-			],
-		];
-	}
-
 	private static function get_exclusion_meta_query() {
 		$is_dealer = Prolific_Dealers::is_dealer();
 
 		if ( $is_dealer ) {
-			// Dealer: hide "customers" products
-			return self::get_hidden_mode_meta_query( 'customers' );
+			// Dealer: hide products where _prolific_visible_to_dealers = '0'
+			// Also handle legacy _prolific_product_visibility = 'customers'
+			return [
+				'relation' => 'AND',
+				[
+					'relation' => 'OR',
+					[
+						'key'     => '_prolific_visible_to_dealers',
+						'compare' => 'NOT EXISTS',
+					],
+					[
+						'key'     => '_prolific_visible_to_dealers',
+						'value'   => '0',
+						'compare' => '!=',
+					],
+				],
+				[
+					'relation' => 'OR',
+					[
+						'key'     => '_prolific_product_visibility',
+						'compare' => 'NOT EXISTS',
+					],
+					[
+						'key'     => '_prolific_product_visibility',
+						'value'   => 'customers',
+						'compare' => '!=',
+					],
+				],
+			];
 		}
 
-		// Non-dealer: hide "dealers" products + legacy _prolific_dealer_only
+		// Non-dealer: hide products where _prolific_visible_to_customers = '0'
+		// Also handle legacy _prolific_product_visibility = 'dealers' and _prolific_dealer_only = '1'
 		return [
 			'relation' => 'AND',
-			self::get_hidden_mode_meta_query( 'dealers' ),
+			[
+				'relation' => 'OR',
+				[
+					'key'     => '_prolific_visible_to_customers',
+					'compare' => 'NOT EXISTS',
+				],
+				[
+					'key'     => '_prolific_visible_to_customers',
+					'value'   => '0',
+					'compare' => '!=',
+				],
+			],
+			[
+				'relation' => 'OR',
+				[
+					'key'     => '_prolific_product_visibility',
+					'compare' => 'NOT EXISTS',
+				],
+				[
+					'key'     => '_prolific_product_visibility',
+					'value'   => 'dealers',
+					'compare' => '!=',
+				],
+			],
 			[
 				'relation' => 'OR',
 				[
@@ -224,20 +280,10 @@ class Prolific_Dealers_Visibility {
 	}
 
 	public static function filter_product_visibility( $visible, $product_id ) {
-		$mode = self::get_visibility_mode( $product_id );
-
-		if ( 'everyone' === $mode ) {
-			return $visible;
-		}
-
 		$is_dealer = Prolific_Dealers::is_dealer();
 
-		if ( 'customers' === $mode && $is_dealer ) {
-			return false;
-		}
-
-		if ( 'dealers' === $mode ) {
-			if ( ! $is_dealer ) {
+		if ( $is_dealer ) {
+			if ( ! self::is_visible_to_dealers( $product_id ) ) {
 				return false;
 			}
 
@@ -250,6 +296,12 @@ class Prolific_Dealers_Visibility {
 			if ( ! in_array( $user_tier, array_map( 'intval', $allowed_tiers ), true ) ) {
 				return false;
 			}
+
+			return $visible;
+		}
+
+		if ( ! self::is_visible_to_customers( $product_id ) ) {
+			return false;
 		}
 
 		return $visible;
