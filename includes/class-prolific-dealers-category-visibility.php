@@ -173,12 +173,18 @@ class Prolific_Dealers_Category_Visibility {
 			$to_customers = self::is_visible_to_customers( $cat->term_id );
 			$to_dealers   = self::is_visible_to_dealers( $cat->term_id );
 
-			if ( $to_dealers && ! $to_customers ) {
+			if ( $is_admin_user ) {
+				// Admins see everything — dealer-only goes in the dropdown, rest goes flat.
+				if ( $to_dealers && ! $to_customers ) {
+					$dealer_only[] = $cat;
+				} else {
+					$customer[] = $cat;
+				}
+			} elseif ( $to_dealers && ! $to_customers ) {
 				$dealer_only[] = $cat;
 			} elseif ( $to_customers ) {
 				$customer[] = $cat;
 			}
-			// If neither checked, skip entirely.
 		}
 
 		$menu_order = count( $items ) + 1;
