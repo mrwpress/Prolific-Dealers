@@ -187,10 +187,17 @@ class Prolific_Dealers_Category_Visibility {
 			}
 		}
 
-		$menu_order = count( $items ) + 1;
+		// Build dynamic items first, then push existing items after.
+		$dynamic     = [];
+		$menu_order  = 1;
+
+		// Flat customer-visible categories first.
+		$dealer_only_ids = [];
+		foreach ( $customer as $cat ) {
+			$dynamic[] = self::make_menu_item( $cat, $menu_order++ );
+		}
 
 		// "Dealers Only" parent + children — only for dealers and admins.
-		$dealer_only_ids = [];
 		if ( ! empty( $dealer_only ) && ( $is_dealer || $is_admin_user ) ) {
 			$parent_id = PHP_INT_MAX;
 
@@ -213,28 +220,19 @@ class Prolific_Dealers_Category_Visibility {
 			$parent->post_type        = 'nav_menu_item';
 			$parent->post_status      = 'publish';
 
-			$items[] = $parent;
+			$dynamic[] = $parent;
 
 			foreach ( $dealer_only as $cat ) {
-				$items[] = self::make_menu_item( $cat, $menu_order++, $parent_id );
+				$dynamic[] = self::make_menu_item( $cat, $menu_order++, $parent_id );
 				$dealer_only_ids[] = $cat->term_id;
 			}
 		}
 
-		// Flat customer-visible categories — skip anything already in dealer dropdown.
-		foreach ( $customer as $cat ) {
-			if ( in_array( $cat->term_id, $dealer_only_ids, true ) ) {
-				continue;
-			}
-
-			// Non-dealer, non-admin: only show customer-visible.
-			if ( ! $is_admin_user && ! $is_dealer && ! self::is_visible_to_customers( $cat->term_id ) ) {
-				continue;
-			}
-
-			$items[] = self::make_menu_item( $cat, $menu_order++ );
+		// Bump existing items so they come after dynamic ones.
+		foreach ( $items as $item ) {
+			$item->menu_order = $menu_order++;
 		}
 
-		return $items;
+		return array_merge( $dynamic, $items );
 	}
 }
