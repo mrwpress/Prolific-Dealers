@@ -8,6 +8,7 @@ class Prolific_Dealers_Category_Visibility {
 
 	const META_CUSTOMERS = '_prolific_cat_visible_to_customers';
 	const META_DEALERS   = '_prolific_cat_visible_to_dealers';
+	const META_TIERS     = '_prolific_cat_dealer_only_tiers';
 	const MENU_ID        = 168;
 
 	public static function init() {
@@ -19,6 +20,9 @@ class Prolific_Dealers_Category_Visibility {
 
 		// Dynamic menu items.
 		add_filter( 'wp_get_nav_menu_items', [ __CLASS__, 'append_category_menu_items' ], 20, 3 );
+
+		// Admin JS for tier toggle.
+		add_action( 'admin_enqueue_scripts', [ __CLASS__, 'enqueue_category_js' ] );
 	}
 
 	/**
@@ -49,9 +53,12 @@ class Prolific_Dealers_Category_Visibility {
 				<?php esc_html_e( 'Customers', 'prolific-dealers' ); ?>
 			</label>
 			<label style="display:block;margin:4px 0;">
-				<input type="checkbox" name="prolific_cat_visible_to_dealers" value="1" checked />
+				<input type="checkbox" id="prolific_cat_visible_to_dealers_cb" name="prolific_cat_visible_to_dealers" value="1" checked />
 				<?php esc_html_e( 'Dealers', 'prolific-dealers' ); ?>
 			</label>
+			<div id="prolific_cat_dealer_tiers" style="margin:6px 0 0 24px;">
+				<?php Prolific_Dealers_Visibility::render_tier_checkboxes( [], 'prolific_cat_dealer_only_tiers' ); ?>
+			</div>
 			<p class="description"><?php esc_html_e( 'Who can see this category in the menu?', 'prolific-dealers' ); ?></p>
 		</div>
 		<?php
@@ -61,8 +68,9 @@ class Prolific_Dealers_Category_Visibility {
 	 * "Edit Category" form fields.
 	 */
 	public static function render_edit_fields( $term ) {
-		$show_customers = self::is_visible_to_customers( $term->term_id );
-		$show_dealers   = self::is_visible_to_dealers( $term->term_id );
+		$show_customers  = self::is_visible_to_customers( $term->term_id );
+		$show_dealers    = self::is_visible_to_dealers( $term->term_id );
+		$tier_visibility = get_term_meta( $term->term_id, self::META_TIERS, true ) ?: [];
 		?>
 		<tr class="form-field">
 			<th scope="row"><label><?php esc_html_e( 'Visibility', 'prolific-dealers' ); ?></label></th>
@@ -72,9 +80,12 @@ class Prolific_Dealers_Category_Visibility {
 					<?php esc_html_e( 'Customers', 'prolific-dealers' ); ?>
 				</label>
 				<label style="display:block;margin:4px 0;">
-					<input type="checkbox" name="prolific_cat_visible_to_dealers" value="1" <?php checked( $show_dealers ); ?> />
+					<input type="checkbox" id="prolific_cat_visible_to_dealers_cb" name="prolific_cat_visible_to_dealers" value="1" <?php checked( $show_dealers ); ?> />
 					<?php esc_html_e( 'Dealers', 'prolific-dealers' ); ?>
 				</label>
+				<div id="prolific_cat_dealer_tiers" style="margin:6px 0 0 24px;<?php echo ! $show_dealers ? 'display:none;' : ''; ?>">
+					<?php Prolific_Dealers_Visibility::render_tier_checkboxes( $tier_visibility, 'prolific_cat_dealer_only_tiers' ); ?>
+				</div>
 				<p class="description"><?php esc_html_e( 'Who can see this category in the menu?', 'prolific-dealers' ); ?></p>
 			</td>
 		</tr>
@@ -94,6 +105,13 @@ class Prolific_Dealers_Category_Visibility {
 
 		update_term_meta( $term_id, self::META_CUSTOMERS, $customers );
 		update_term_meta( $term_id, self::META_DEALERS, $dealers );
+
+		if ( '1' === $dealers && ! empty( $_POST['prolific_cat_dealer_only_tiers'] ) ) {
+			$tiers = Prolific_Dealers_Visibility::sanitize_tier_input( $_POST['prolific_cat_dealer_only_tiers'] );
+			update_term_meta( $term_id, self::META_TIERS, $tiers );
+		} else {
+			delete_term_meta( $term_id, self::META_TIERS );
+		}
 	}
 
 	/**
@@ -181,7 +199,10 @@ class Prolific_Dealers_Category_Visibility {
 					$customer[] = $cat;
 				}
 			} elseif ( $to_dealers && ! $to_customers ) {
-				$dealer_only[] = $cat;
+				$allowed_tiers = get_term_meta( $cat->term_id, self::META_TIERS, true ) ?: [];
+				if ( Prolific_Dealers_Visibility::passes_tier_check( $allowed_tiers ) ) {
+					$dealer_only[] = $cat;
+				}
 			} elseif ( $to_customers ) {
 				$customer[] = $cat;
 			}
@@ -234,5 +255,27 @@ class Prolific_Dealers_Category_Visibility {
 		}
 
 		return array_merge( $dynamic, $items );
+	}
+
+	public static function enqueue_category_js( $hook ) {
+		if ( 'edit-tags.php' !== $hook && 'term.php' !== $hook ) {
+			return;
+		}
+
+		$screen = get_current_screen();
+		if ( ! $screen || 'product_cat' !== $screen->taxonomy ) {
+			return;
+		}
+
+		$js = "jQuery(function($){
+			var dealerCb = $('#prolific_cat_visible_to_dealers_cb');
+			var tierWrap = $('#prolific_cat_dealer_tiers');
+
+			dealerCb.on('change', function(){
+				tierWrap.toggle(dealerCb.is(':checked'));
+			});
+		});";
+
+		wp_add_inline_script( 'jquery', $js );
 	}
 }
