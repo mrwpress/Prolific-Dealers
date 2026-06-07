@@ -268,18 +268,30 @@ class Prolific_Dealers_Visibility {
 	}
 
 	public static function filter_product_query( $query ) {
+		if ( current_user_can( 'manage_options' ) ) {
+			return;
+		}
+
 		$meta_query = $query->get( 'meta_query' ) ?: [];
 		$meta_query[] = self::get_exclusion_meta_query();
 		$query->set( 'meta_query', $meta_query );
 	}
 
 	public static function filter_shortcode_query( $query_args ) {
+		if ( current_user_can( 'manage_options' ) ) {
+			return $query_args;
+		}
+
 		$query_args['meta_query'] = $query_args['meta_query'] ?? [];
 		$query_args['meta_query'][] = self::get_exclusion_meta_query();
 		return $query_args;
 	}
 
 	public static function filter_product_visibility( $visible, $product_id ) {
+		if ( current_user_can( 'manage_options' ) ) {
+			return $visible;
+		}
+
 		$is_dealer = Prolific_Dealers::is_dealer();
 
 		if ( $is_dealer ) {
