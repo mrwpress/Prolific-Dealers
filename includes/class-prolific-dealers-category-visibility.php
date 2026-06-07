@@ -111,9 +111,18 @@ class Prolific_Dealers_Category_Visibility {
 		$is_admin_user = current_user_can( 'manage_options' );
 		$is_dealer     = Prolific_Dealers::is_dealer();
 
+		// Collect term IDs already in the menu to avoid duplicates.
+		$existing_cat_ids = [];
+		foreach ( $items as $menu_item ) {
+			if ( 'taxonomy' === $menu_item->type && 'product_cat' === $menu_item->object ) {
+				$existing_cat_ids[] = (int) $menu_item->object_id;
+			}
+		}
+
 		$categories = get_terms( [
 			'taxonomy'   => 'product_cat',
 			'hide_empty' => false,
+			'exclude'    => array_merge( $existing_cat_ids, [ get_option( 'default_product_cat', 0 ) ] ),
 			'orderby'    => 'name',
 			'order'      => 'ASC',
 		] );
@@ -135,7 +144,9 @@ class Prolific_Dealers_Category_Visibility {
 			}
 
 			$item                   = new stdClass();
-			$item->ID               = $cat->term_id * -1;
+			$fake_id                = PHP_INT_MAX - $cat->term_id;
+			$item->ID               = $fake_id;
+			$item->db_id            = $fake_id;
 			$item->object_id        = $cat->term_id;
 			$item->object           = 'product_cat';
 			$item->type             = 'taxonomy';
@@ -144,7 +155,6 @@ class Prolific_Dealers_Category_Visibility {
 			$item->url              = get_term_link( $cat );
 			$item->menu_item_parent = 0;
 			$item->menu_order       = $menu_order++;
-			$item->db_id            = 0;
 			$item->target           = '';
 			$item->attr_title       = '';
 			$item->description      = '';
