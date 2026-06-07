@@ -97,7 +97,41 @@ class Prolific_Dealers_Category_Visibility {
 	}
 
 	/**
-	 * Append visible product categories as menu items to menu 2026.
+	 * Build a fake menu item object for a product category.
+	 */
+	private static function make_menu_item( $cat, $menu_order, $parent_db_id = 0 ) {
+		$fake_id = PHP_INT_MAX - $cat->term_id;
+
+		$item                   = new stdClass();
+		$item->ID               = $fake_id;
+		$item->db_id            = $fake_id;
+		$item->object_id        = $cat->term_id;
+		$item->object           = 'product_cat';
+		$item->type             = 'taxonomy';
+		$item->type_label       = 'Product Category';
+		$item->title            = $cat->name;
+		$item->url              = get_term_link( $cat );
+		$item->menu_item_parent = $parent_db_id;
+		$item->menu_order       = $menu_order;
+		$item->target           = '';
+		$item->attr_title       = '';
+		$item->description      = '';
+		$item->classes          = [ 'menu-item', 'menu-item-type-taxonomy', 'menu-item-object-product_cat' ];
+		$item->xfn              = '';
+		$item->post_type        = 'nav_menu_item';
+		$item->post_status      = 'publish';
+
+		return $item;
+	}
+
+	/**
+	 * Append visible product categories as menu items.
+	 *
+	 * Dealer-only categories (visible to dealers, NOT customers) go under
+	 * a "Dealers Only" parent dropdown — shown only to dealers/admins.
+	 *
+	 * Customer-visible categories are appended flat at the end, skipping
+	 * any already in the menu or already in the dealer dropdown.
 	 */
 	public static function append_category_menu_items( $items, $menu, $args ) {
 		if ( (int) $menu->term_id !== self::MENU_ID ) {
@@ -111,7 +145,7 @@ class Prolific_Dealers_Category_Visibility {
 		$is_admin_user = current_user_can( 'manage_options' );
 		$is_dealer     = Prolific_Dealers::is_dealer();
 
-		// Collect term IDs already in the menu to avoid duplicates.
+		// Collect term IDs already manually in the menu.
 		$existing_cat_ids = [];
 		foreach ( $items as $menu_item ) {
 			if ( 'taxonomy' === $menu_item->type && 'product_cat' === $menu_item->object ) {
@@ -131,39 +165,68 @@ class Prolific_Dealers_Category_Visibility {
 			return $items;
 		}
 
-		$menu_order = count( $items ) + 1;
+		// Sort categories into buckets.
+		$dealer_only = []; // visible to dealers but NOT customers
+		$customer    = []; // visible to customers (may also be visible to dealers)
 
 		foreach ( $categories as $cat ) {
-			if ( ! $is_admin_user ) {
-				if ( $is_dealer && ! self::is_visible_to_dealers( $cat->term_id ) ) {
-					continue;
-				}
-				if ( ! $is_dealer && ! self::is_visible_to_customers( $cat->term_id ) ) {
-					continue;
-				}
+			$to_customers = self::is_visible_to_customers( $cat->term_id );
+			$to_dealers   = self::is_visible_to_dealers( $cat->term_id );
+
+			if ( $to_dealers && ! $to_customers ) {
+				$dealer_only[] = $cat;
+			} elseif ( $to_customers ) {
+				$customer[] = $cat;
+			}
+			// If neither checked, skip entirely.
+		}
+
+		$menu_order = count( $items ) + 1;
+
+		// "Dealers Only" parent + children — only for dealers and admins.
+		$dealer_only_ids = [];
+		if ( ! empty( $dealer_only ) && ( $is_dealer || $is_admin_user ) ) {
+			$parent_id = PHP_INT_MAX;
+
+			$parent                   = new stdClass();
+			$parent->ID               = $parent_id;
+			$parent->db_id            = $parent_id;
+			$parent->object_id        = 0;
+			$parent->object           = 'custom';
+			$parent->type             = 'custom';
+			$parent->type_label       = 'Custom Link';
+			$parent->title            = __( 'Dealers Only', 'prolific-dealers' );
+			$parent->url              = '#';
+			$parent->menu_item_parent = 0;
+			$parent->menu_order       = $menu_order++;
+			$parent->target           = '';
+			$parent->attr_title       = '';
+			$parent->description      = '';
+			$parent->classes          = [ 'menu-item', 'menu-item-has-children', 'menu-item-type-custom' ];
+			$parent->xfn              = '';
+			$parent->post_type        = 'nav_menu_item';
+			$parent->post_status      = 'publish';
+
+			$items[] = $parent;
+
+			foreach ( $dealer_only as $cat ) {
+				$items[] = self::make_menu_item( $cat, $menu_order++, $parent_id );
+				$dealer_only_ids[] = $cat->term_id;
+			}
+		}
+
+		// Flat customer-visible categories — skip anything already in dealer dropdown.
+		foreach ( $customer as $cat ) {
+			if ( in_array( $cat->term_id, $dealer_only_ids, true ) ) {
+				continue;
 			}
 
-			$item                   = new stdClass();
-			$fake_id                = PHP_INT_MAX - $cat->term_id;
-			$item->ID               = $fake_id;
-			$item->db_id            = $fake_id;
-			$item->object_id        = $cat->term_id;
-			$item->object           = 'product_cat';
-			$item->type             = 'taxonomy';
-			$item->type_label       = 'Product Category';
-			$item->title            = $cat->name;
-			$item->url              = get_term_link( $cat );
-			$item->menu_item_parent = 0;
-			$item->menu_order       = $menu_order++;
-			$item->target           = '';
-			$item->attr_title       = '';
-			$item->description      = '';
-			$item->classes          = [ 'menu-item', 'menu-item-type-taxonomy', 'menu-item-object-product_cat' ];
-			$item->xfn              = '';
-			$item->post_type        = 'nav_menu_item';
-			$item->post_status      = 'publish';
+			// Non-dealer, non-admin: only show customer-visible.
+			if ( ! $is_admin_user && ! $is_dealer && ! self::is_visible_to_customers( $cat->term_id ) ) {
+				continue;
+			}
 
-			$items[] = $item;
+			$items[] = self::make_menu_item( $cat, $menu_order++ );
 		}
 
 		return $items;
