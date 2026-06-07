@@ -25,12 +25,14 @@ class Prolific_Dealers {
 		require_once PROLIFIC_DEALERS_PATH . 'includes/class-prolific-dealers-pricing.php';
 		require_once PROLIFIC_DEALERS_PATH . 'includes/class-prolific-dealers-visibility.php';
 		require_once PROLIFIC_DEALERS_PATH . 'includes/class-prolific-dealers-application.php';
+		require_once PROLIFIC_DEALERS_PATH . 'includes/class-prolific-dealers-category-visibility.php';
 
 		Prolific_Dealers_Settings::init();
 		Prolific_Dealers_User::init();
 		Prolific_Dealers_Pricing::init();
 		Prolific_Dealers_Visibility::init();
 		Prolific_Dealers_Application::init();
+		Prolific_Dealers_Category_Visibility::init();
 	}
 
 	public static function is_dealer() {
