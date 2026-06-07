@@ -283,82 +283,32 @@ class Prolific_Dealers_Visibility {
 		clean_post_cache( $post_id );
 	}
 
-	private static function get_exclusion_meta_query() {
+	/**
+	 * Get product IDs that should be hidden from the current user.
+	 * Uses a single cheap query to find explicitly hidden products,
+	 * then feeds them to post__not_in (avoids expensive LEFT JOINs).
+	 */
+	private static function get_hidden_product_ids() {
+		global $wpdb;
+
 		$is_dealer = Prolific_Dealers::is_dealer();
 
 		if ( $is_dealer ) {
-			// Dealer: hide products where _prolific_visible_to_dealers = '0'
-			// Also handle legacy _prolific_product_visibility = 'customers'
-			return [
-				'relation' => 'AND',
-				[
-					'relation' => 'OR',
-					[
-						'key'     => '_prolific_visible_to_dealers',
-						'compare' => 'NOT EXISTS',
-					],
-					[
-						'key'     => '_prolific_visible_to_dealers',
-						'value'   => '0',
-						'compare' => '!=',
-					],
-				],
-				[
-					'relation' => 'OR',
-					[
-						'key'     => '_prolific_product_visibility',
-						'compare' => 'NOT EXISTS',
-					],
-					[
-						'key'     => '_prolific_product_visibility',
-						'value'   => 'customers',
-						'compare' => '!=',
-					],
-				],
-			];
+			// Hide products where visibility is explicitly '0' or legacy says 'customers'.
+			return $wpdb->get_col(
+				"SELECT DISTINCT post_id FROM {$wpdb->postmeta}
+				 WHERE (meta_key = '_prolific_visible_to_dealers' AND meta_value = '0')
+				    OR (meta_key = '_prolific_product_visibility' AND meta_value = 'customers')"
+			);
 		}
 
-		// Non-dealer: hide products where _prolific_visible_to_customers = '0'
-		// Also handle legacy _prolific_product_visibility = 'dealers' and _prolific_dealer_only = '1'
-		return [
-			'relation' => 'AND',
-			[
-				'relation' => 'OR',
-				[
-					'key'     => '_prolific_visible_to_customers',
-					'compare' => 'NOT EXISTS',
-				],
-				[
-					'key'     => '_prolific_visible_to_customers',
-					'value'   => '0',
-					'compare' => '!=',
-				],
-			],
-			[
-				'relation' => 'OR',
-				[
-					'key'     => '_prolific_product_visibility',
-					'compare' => 'NOT EXISTS',
-				],
-				[
-					'key'     => '_prolific_product_visibility',
-					'value'   => 'dealers',
-					'compare' => '!=',
-				],
-			],
-			[
-				'relation' => 'OR',
-				[
-					'key'     => '_prolific_dealer_only',
-					'compare' => 'NOT EXISTS',
-				],
-				[
-					'key'     => '_prolific_dealer_only',
-					'value'   => '1',
-					'compare' => '!=',
-				],
-			],
-		];
+		// Non-dealer: hide products explicitly marked dealer-only.
+		return $wpdb->get_col(
+			"SELECT DISTINCT post_id FROM {$wpdb->postmeta}
+			 WHERE (meta_key = '_prolific_visible_to_customers' AND meta_value = '0')
+			    OR (meta_key = '_prolific_product_visibility' AND meta_value = 'dealers')
+			    OR (meta_key = '_prolific_dealer_only' AND meta_value = '1')"
+		);
 	}
 
 	public static function filter_product_query( $query ) {
@@ -366,9 +316,11 @@ class Prolific_Dealers_Visibility {
 			return;
 		}
 
-		$meta_query = $query->get( 'meta_query' ) ?: [];
-		$meta_query[] = self::get_exclusion_meta_query();
-		$query->set( 'meta_query', $meta_query );
+		$hidden = self::get_hidden_product_ids();
+		if ( ! empty( $hidden ) ) {
+			$existing = $query->get( 'post__not_in' ) ?: [];
+			$query->set( 'post__not_in', array_merge( $existing, array_map( 'intval', $hidden ) ) );
+		}
 	}
 
 	public static function filter_shortcode_query( $query_args ) {
@@ -376,8 +328,13 @@ class Prolific_Dealers_Visibility {
 			return $query_args;
 		}
 
-		$query_args['meta_query'] = $query_args['meta_query'] ?? [];
-		$query_args['meta_query'][] = self::get_exclusion_meta_query();
+		$hidden = self::get_hidden_product_ids();
+		if ( ! empty( $hidden ) ) {
+			$query_args['post__not_in'] = array_merge(
+				$query_args['post__not_in'] ?? [],
+				array_map( 'intval', $hidden )
+			);
+		}
 		return $query_args;
 	}
 
