@@ -156,7 +156,7 @@ class Prolific_Dealers_Category_Visibility {
 		$categories = get_terms( [
 			'taxonomy'   => 'product_cat',
 			'hide_empty' => false,
-			'exclude'    => array_merge( $existing_cat_ids, [ get_option( 'default_product_cat', 0 ) ] ),
+			'exclude'    => $existing_cat_ids,
 			'orderby'    => 'name',
 			'order'      => 'ASC',
 		] );
