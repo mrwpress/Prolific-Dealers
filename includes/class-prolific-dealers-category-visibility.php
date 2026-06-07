@@ -8,7 +8,7 @@ class Prolific_Dealers_Category_Visibility {
 
 	const META_CUSTOMERS = '_prolific_cat_visible_to_customers';
 	const META_DEALERS   = '_prolific_cat_visible_to_dealers';
-	const MENU_ID        = 2026;
+	const MENU_ID        = 168;
 
 	public static function init() {
 		// Category taxonomy fields.
