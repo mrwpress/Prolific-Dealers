@@ -13,6 +13,63 @@ class Prolific_Dealers_Visibility {
 		add_filter( 'woocommerce_shortcode_products_query', [ __CLASS__, 'filter_shortcode_query' ] );
 		add_filter( 'woocommerce_product_is_visible', [ __CLASS__, 'filter_product_visibility' ], 10, 2 );
 		add_action( 'admin_enqueue_scripts', [ __CLASS__, 'enqueue_meta_box_js' ] );
+		add_action( 'wp', [ __CLASS__, 'block_hidden_single_product' ] );
+
+		// Product list table column.
+		add_filter( 'manage_edit-product_columns', [ __CLASS__, 'add_tier_column' ] );
+		add_action( 'manage_product_posts_custom_column', [ __CLASS__, 'render_tier_column' ], 10, 2 );
+		add_action( 'admin_head', [ __CLASS__, 'tier_column_css' ] );
+	}
+
+	/**
+	 * Render tier checkboxes. Used by product meta box and category forms.
+	 *
+	 * @param array         $selected_tiers Currently selected tier IDs.
+	 * @param string        $field_name     Input name attribute (without []).
+	 * @param callable|null $after_cb       Optional callback( $tier_num, $is_checked ) called after each checkbox.
+	 */
+	public static function render_tier_checkboxes( $selected_tiers, $field_name = 'prolific_dealer_only_tiers', $after_cb = null ) {
+		?>
+		<p class="description"><?php esc_html_e( 'Limit to specific tiers:', 'prolific-dealers' ); ?></p>
+		<?php for ( $i = 1; $i <= 10; $i++ ) :
+			$tier_checked = in_array( $i, array_map( 'intval', (array) $selected_tiers ), true );
+			?>
+			<div style="margin:2px 0;">
+				<label style="display:block;">
+					<input type="checkbox" class="prolific-tier-cb" name="<?php echo esc_attr( $field_name ); ?>[]" value="<?php echo $i; ?>" <?php checked( $tier_checked ); ?> />
+					<?php echo esc_html( Prolific_Dealers_Settings::get_tier_label( $i ) ); ?>
+				</label>
+				<?php if ( $after_cb ) { $after_cb( $i, $tier_checked ); } ?>
+			</div>
+		<?php endfor; ?>
+		<p class="description" style="margin-top:6px;"><?php esc_html_e( 'Leave all unchecked to show to all dealers.', 'prolific-dealers' ); ?></p>
+		<?php
+	}
+
+	/**
+	 * Sanitize tier input from $_POST.
+	 *
+	 * @param array $raw Raw tier values from form submission.
+	 * @return array Validated tier IDs (1–10).
+	 */
+	public static function sanitize_tier_input( $raw ) {
+		$tiers = array_map( 'absint', (array) $raw );
+		$tiers = array_filter( $tiers, function( $t ) { return $t >= 1 && $t <= 10; } );
+		return array_values( $tiers );
+	}
+
+	/**
+	 * Check whether the current dealer's tier is in an allowed list.
+	 *
+	 * @param array $allowed_tiers Tier IDs that are allowed. Empty = all tiers allowed.
+	 * @return bool
+	 */
+	public static function passes_tier_check( $allowed_tiers ) {
+		if ( empty( $allowed_tiers ) ) {
+			return true;
+		}
+		$user_tier = Prolific_Dealers_User::get_dealer_tier();
+		return in_array( $user_tier, array_map( 'intval', $allowed_tiers ), true );
 	}
 
 	public static function register_meta_box() {
@@ -86,27 +143,21 @@ class Prolific_Dealers_Visibility {
 			<?php esc_html_e( 'Dealers', 'prolific-dealers' ); ?>
 		</label>
 		<div id="prolific_dealer_tiers" style="margin:6px 0 0 24px;<?php echo ! $show_dealers ? 'display:none;' : ''; ?>">
-			<p class="description"><?php esc_html_e( 'Limit to specific tiers:', 'prolific-dealers' ); ?></p>
-			<?php for ( $i = 1; $i <= 10; $i++ ) :
-				$tier_checked = in_array( $i, array_map( 'intval', $tier_visibility ), true );
+			<?php
+			self::render_tier_checkboxes( $tier_visibility, 'prolific_dealer_only_tiers', function( $i, $tier_checked ) use ( $overrides ) {
 				$discount_val = isset( $overrides[ $i ] ) ? $overrides[ $i ] : '';
 				?>
-				<div style="margin:2px 0;">
-					<label style="display:block;">
-						<input type="checkbox" class="prolific-tier-cb" name="prolific_dealer_only_tiers[]" value="<?php echo $i; ?>" <?php checked( $tier_checked ); ?> />
-						<?php echo esc_html( Prolific_Dealers_Settings::get_tier_label( $i ) ); ?>
+				<div class="prolific-tier-discount" data-tier="<?php echo $i; ?>" style="margin:2px 0 6px 24px;<?php echo ! $tier_checked ? 'display:none;' : ''; ?>">
+					<label style="display:flex;align-items:center;gap:4px;">
+						<?php esc_html_e( 'Discount override:', 'prolific-dealers' ); ?>
+						<input type="number" name="prolific_dealer_discount_tier[<?php echo $i; ?>]"
+							value="<?php echo esc_attr( $discount_val ); ?>" min="0" max="100" step="1" style="width:60px;" />
+						<span>%</span>
 					</label>
-					<div class="prolific-tier-discount" data-tier="<?php echo $i; ?>" style="margin:2px 0 6px 24px;<?php echo ! $tier_checked ? 'display:none;' : ''; ?>">
-						<label style="display:flex;align-items:center;gap:4px;">
-							<?php esc_html_e( 'Discount override:', 'prolific-dealers' ); ?>
-							<input type="number" name="prolific_dealer_discount_tier[<?php echo $i; ?>]"
-								value="<?php echo esc_attr( $discount_val ); ?>" min="0" max="100" step="1" style="width:60px;" />
-							<span>%</span>
-						</label>
-					</div>
 				</div>
-			<?php endfor; ?>
-			<p class="description" style="margin-top:6px;"><?php esc_html_e( 'Leave all unchecked to show to all dealers.', 'prolific-dealers' ); ?></p>
+				<?php
+			} );
+			?>
 		</div>
 		<?php
 	}
@@ -138,6 +189,44 @@ class Prolific_Dealers_Visibility {
 		wp_add_inline_script( 'jquery', $js );
 	}
 
+	public static function tier_column_css() {
+		$screen = get_current_screen();
+		if ( ! $screen || 'edit-product' !== $screen->id ) {
+			return;
+		}
+		echo '<style>.column-dealer_tiers{width:120px;}</style>';
+	}
+
+	public static function add_tier_column( $columns ) {
+		$new = [];
+		foreach ( $columns as $key => $label ) {
+			$new[ $key ] = $label;
+			if ( 'product_tag' === $key ) {
+				$new['dealer_tiers'] = __( 'Dealer Tiers', 'prolific-dealers' );
+			}
+		}
+		// Fallback if product_tag column doesn't exist.
+		if ( ! isset( $new['dealer_tiers'] ) ) {
+			$new['dealer_tiers'] = __( 'Dealer Tiers', 'prolific-dealers' );
+		}
+		return $new;
+	}
+
+	public static function render_tier_column( $column, $post_id ) {
+		if ( 'dealer_tiers' !== $column ) {
+			return;
+		}
+
+		$tiers = get_post_meta( $post_id, '_prolific_dealer_only_tiers', true ) ?: [];
+		if ( empty( $tiers ) ) {
+			echo '—';
+			return;
+		}
+
+		$labels = array_map( [ 'Prolific_Dealers_Settings', 'get_tier_label' ], $tiers );
+		echo esc_html( implode( ', ', $labels ) );
+	}
+
 	public static function save_meta_box( $post_id ) {
 		if ( ! isset( $_POST['prolific_product_visibility_nonce'] ) ) {
 			return;
@@ -163,9 +252,8 @@ class Prolific_Dealers_Visibility {
 		delete_post_meta( $post_id, '_prolific_product_visibility' );
 
 		if ( '1' === $show_dealers && ! empty( $_POST['prolific_dealer_only_tiers'] ) ) {
-			$tiers = array_map( 'absint', (array) $_POST['prolific_dealer_only_tiers'] );
-			$tiers = array_filter( $tiers, function( $t ) { return $t >= 1 && $t <= 10; } );
-			update_post_meta( $post_id, '_prolific_dealer_only_tiers', array_values( $tiers ) );
+			$tiers = self::sanitize_tier_input( $_POST['prolific_dealer_only_tiers'] );
+			update_post_meta( $post_id, '_prolific_dealer_only_tiers', $tiers );
 		} else {
 			delete_post_meta( $post_id, '_prolific_dealer_only_tiers' );
 		}
@@ -187,6 +275,12 @@ class Prolific_Dealers_Visibility {
 
 		// Clean up legacy single-value meta if present.
 		delete_post_meta( $post_id, '_prolific_dealer_discount' );
+
+		// Purge any server-side cache for this product so visibility changes take effect immediately.
+		if ( function_exists( 'sg_cachepress_purge_cache' ) ) {
+			sg_cachepress_purge_cache( get_permalink( $post_id ) );
+		}
+		clean_post_cache( $post_id );
 	}
 
 	private static function get_exclusion_meta_query() {
@@ -287,6 +381,36 @@ class Prolific_Dealers_Visibility {
 		return $query_args;
 	}
 
+	public static function block_hidden_single_product() {
+		if ( ! is_singular( 'product' ) ) {
+			return;
+		}
+		if ( current_user_can( 'manage_options' ) ) {
+			return;
+		}
+
+		$product_id = get_queried_object_id();
+		$is_dealer  = Prolific_Dealers::is_dealer();
+
+		if ( $is_dealer ) {
+			if ( ! self::is_visible_to_dealers( $product_id ) ) {
+				wp_safe_redirect( wc_get_page_permalink( 'shop' ) );
+				exit;
+			}
+			$allowed_tiers = get_post_meta( $product_id, '_prolific_dealer_only_tiers', true ) ?: [];
+			if ( ! self::passes_tier_check( $allowed_tiers ) ) {
+				wp_safe_redirect( wc_get_page_permalink( 'shop' ) );
+				exit;
+			}
+			return;
+		}
+
+		if ( ! self::is_visible_to_customers( $product_id ) ) {
+			wp_safe_redirect( wc_get_page_permalink( 'shop' ) );
+			exit;
+		}
+	}
+
 	public static function filter_product_visibility( $visible, $product_id ) {
 		if ( current_user_can( 'manage_options' ) ) {
 			return $visible;
@@ -300,12 +424,7 @@ class Prolific_Dealers_Visibility {
 			}
 
 			$allowed_tiers = get_post_meta( $product_id, '_prolific_dealer_only_tiers', true ) ?: [];
-			if ( empty( $allowed_tiers ) ) {
-				return $visible;
-			}
-
-			$user_tier = Prolific_Dealers_User::get_dealer_tier();
-			if ( ! in_array( $user_tier, array_map( 'intval', $allowed_tiers ), true ) ) {
+			if ( ! self::passes_tier_check( $allowed_tiers ) ) {
 				return false;
 			}
 
